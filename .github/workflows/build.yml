@@ -22,6 +22,12 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Verify Java
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME"
+          java -version
+          which java
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
@@ -30,24 +36,14 @@ jobs:
         shell: bash
         run: |
           ZIP_FILE="$(find . -maxdepth 2 -type f -iname '*.zip' ! -path './.git/*' | head -n 1)"
-          if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: Project ZIP not found."
-            exit 1
-          fi
-
+          test -n "$ZIP_FILE" || { echo "Project ZIP not found"; exit 1; }
           mkdir -p extracted
           unzip -q "$ZIP_FILE" -d extracted
-
           PROJECT_DIR="$(find extracted -type f -name settings.gradle -printf '%h\n' | head -n 1)"
           if [ -z "$PROJECT_DIR" ]; then
             PROJECT_DIR="$(find extracted -type f -name settings.gradle.kts -printf '%h\n' | head -n 1)"
           fi
-
-          if [ -z "$PROJECT_DIR" ]; then
-            echo "ERROR: No Gradle Android project found inside ZIP."
-            exit 1
-          fi
-
+          test -n "$PROJECT_DIR" || { echo "Gradle project not found in ZIP"; exit 1; }
           echo "dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Set up Gradle
