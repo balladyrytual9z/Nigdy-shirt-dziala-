@@ -1,0 +1,57 @@
+
+name: Build Night Light Check APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Find and extract project ZIP
+        run: |
+          ZIP_FILE="$(find . -maxdepth 2 -type f -iname '*.zip' ! -path './.git/*' | head -n 1)"
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERROR: No project ZIP found. Upload NightLightCheck-project.zip to the repository root."
+            exit 1
+          fi
+          mkdir -p extracted
+          unzip -q "$ZIP_FILE" -d extracted
+          PROJECT_DIR="$(find extracted -type f -name settings.gradle -printf '%h\n' | head -n 1)"
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "ERROR: ZIP did not contain an Android Gradle project (settings.gradle)."
+            exit 1
+          fi
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '7.6.4'
+
+      - name: Build debug APK
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: gradle assembleDebug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NightLightCheck-APK
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
