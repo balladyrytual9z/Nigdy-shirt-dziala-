@@ -22,28 +22,34 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Verify Java
+      - name: Configure Android SDK
         run: |
           echo "JAVA_HOME=$JAVA_HOME"
           java -version
-          which java
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Find and extract project ZIP
         id: project
         shell: bash
         run: |
           ZIP_FILE="$(find . -maxdepth 2 -type f -iname '*.zip' ! -path './.git/*' | head -n 1)"
-          test -n "$ZIP_FILE" || { echo "Project ZIP not found"; exit 1; }
+          if [ -z "$ZIP_FILE" ]; then
+            echo "Project ZIP not found"
+            exit 1
+          fi
           mkdir -p extracted
           unzip -q "$ZIP_FILE" -d extracted
           PROJECT_DIR="$(find extracted -type f -name settings.gradle -printf '%h\n' | head -n 1)"
           if [ -z "$PROJECT_DIR" ]; then
             PROJECT_DIR="$(find extracted -type f -name settings.gradle.kts -printf '%h\n' | head -n 1)"
           fi
-          test -n "$PROJECT_DIR" || { echo "Gradle project not found in ZIP"; exit 1; }
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "Gradle project not found in ZIP"
+            exit 1
+          fi
           echo "dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Set up Gradle
